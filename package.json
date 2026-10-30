@@ -1,0 +1,17 @@
+{
+  "name": "hamba",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "scrape": "node scraper/scrape.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.10.0",
+    "cheerio": "^1.0.0",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

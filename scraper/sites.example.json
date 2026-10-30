@@ -1,0 +1,9 @@
+[
+  {
+    "store_code": "SP-GT04",
+    "url": "https://example-store.co.za/products",
+    "item": ".product-card",
+    "name": ".product-title",
+    "price": ".price"
+  }
+]
