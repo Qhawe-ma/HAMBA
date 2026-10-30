@@ -1,26 +1,71 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { db, isOpen, seed } from './db.js';
+import { db, isOpen, seed, ensureCatalogue, importProducts } from './db.js';
+import { AISLES } from './catalogue.js';
 import { router as authRouter, auth } from './auth.js';
+
+export { importProducts };
 
 const app = express();
 const FEE = 25, TRIP_MS = 90_000, FLOW = ['received', 'preparing', 'ready', 'on_the_way'];
 app.use(express.json({ limit: '1mb' }));
 app.use('/api/auth', authRouter);
 
-const withOpen = s => ({ ...s, open: isOpen(s) });
+const withOpen = s => ({
+  ...s,
+  open: isOpen(s),
+  delivery_fee: FEE,
+  eta: s.category === 'Groceries' ? '45–70 min' : '25–40 min',
+});
 const ownsStore = (u, sid) => u.role === 'admin' || (u.role === 'merchant' && u.store_id === Number(sid));
 const canSee = (u, o) => u.role === 'admin' || o.user_id === u.id || (u.role === 'merchant' && u.store_id === o.store_id);
 const fail = (res, code, error) => res.status(code).json({ error });
 
+const likeEscape = s => String(s).replace(/[\\%_]/g, c => '\\' + c);
+
 // ---- Stores and products ----
 app.get('/api/stores', (_q, res) => res.json(db.prepare('SELECT * FROM stores').all().map(withOpen)));
+
+app.get('/api/aisles', (_q, res) => {
+  const counts = Object.fromEntries(db.prepare(`SELECT category, COUNT(*) n FROM products WHERE category != '' GROUP BY category`).all().map(r => [r.category, r.n]));
+  res.json(AISLES.filter(a => counts[a.name]).map(a => ({ ...a, count: counts[a.name] })));
+});
+
+app.get('/api/products', (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const category = String(req.query.category || '').trim();
+  const storeId = req.query.store_id;
+  const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 200));
+  let sql = `SELECT p.id, p.store_id, p.name, p.price, p.available, p.category, p.brand, p.pack, p.sku, p.image, p.blurb,
+      s.name AS store_name, s.category AS store_category, s.address AS store_address, s.open_h, s.close_h, s.mode
+    FROM products p JOIN stores s ON s.id = p.store_id WHERE 1=1`;
+  const args = [];
+  if (storeId) { sql += ' AND p.store_id=?'; args.push(storeId); }
+  if (category) { sql += ' AND p.category=?'; args.push(category); }
+  if (q) {
+    sql += ` AND (p.name LIKE ? ESCAPE '\\' OR p.brand LIKE ? ESCAPE '\\' OR p.category LIKE ? ESCAPE '\\' OR p.pack LIKE ? ESCAPE '\\' OR s.name LIKE ? ESCAPE '\\')`;
+    const like = `%${likeEscape(q)}%`;
+    args.push(like, like, like, like, like);
+  }
+  sql += ' ORDER BY p.category, p.name LIMIT ?';
+  args.push(limit);
+  res.json(db.prepare(sql).all(...args).map(p => ({
+    id: p.id, store_id: p.store_id, name: p.name, price: p.price, available: p.available,
+    category: p.category || '', brand: p.brand || '', pack: p.pack || '', sku: p.sku || '',
+    image: p.image || '', blurb: p.blurb || '',
+    store_name: p.store_name, store_category: p.store_category, store_address: p.store_address,
+    store_open: isOpen(p),
+  })));
+});
 
 app.get('/api/stores/:id', (req, res) => {
   const s = db.prepare('SELECT * FROM stores WHERE id=?').get(req.params.id);
   if (!s) return fail(res, 404, 'Store not found');
-  res.json({ ...withOpen(s), products: db.prepare('SELECT * FROM products WHERE store_id=? ORDER BY name').all(s.id) });
+  res.json({
+    ...withOpen(s),
+    products: db.prepare('SELECT * FROM products WHERE store_id=? ORDER BY category, name').all(s.id),
+  });
 });
 
 app.patch('/api/stores/:id', auth(['merchant', 'admin']), (req, res) => {
@@ -38,7 +83,8 @@ app.post('/api/stores/:id/products', auth(['merchant', 'admin']), (req, res) => 
   const price = Number(req.body.price);
   if (!req.body.name?.trim() || !(price >= 0)) return fail(res, 400, 'Enter a name and a price');
   try {
-    const r = db.prepare('INSERT INTO products(store_id,name,price) VALUES(?,?,?)').run(req.params.id, req.body.name.trim(), price);
+    const r = db.prepare('INSERT INTO products(store_id,name,price,category,pack,brand) VALUES(?,?,?,?,?,?)')
+      .run(req.params.id, req.body.name.trim(), price, (req.body.category || '').trim(), (req.body.pack || '').trim(), (req.body.brand || '').trim());
     res.status(201).json({ id: r.lastInsertRowid });
   } catch { fail(res, 409, 'That product already exists'); }
 });
@@ -136,15 +182,6 @@ app.get('/api/admin/stats', auth(['admin']), (_q, res) => res.json({
   customers: db.prepare("SELECT COUNT(*) n FROM users WHERE role='customer'").get().n,
   stores: db.prepare('SELECT COUNT(*) n FROM stores').get().n }));
 
-// Used by scraper/scrape.js and the admin import: upserts products by store code.
-export function importProducts(code, list) {
-  const s = db.prepare('SELECT id FROM stores WHERE code=?').get(code);
-  if (!s) throw new Error('Unknown store code ' + code);
-  const up = db.prepare(`INSERT INTO products(store_id,name,price,source_url) VALUES(?,?,?,?)
-    ON CONFLICT(store_id,name) DO UPDATE SET price=excluded.price, source_url=excluded.source_url`);
-  db.transaction(() => list.forEach(p => up.run(s.id, p.name, p.price, p.url || null)))();
-  return list.length;
-}
 app.post('/api/admin/import', auth(['admin']), (req, res) => {
   try { res.json({ imported: importProducts(req.body.store_code, req.body.products || []) }); }
   catch (e) { fail(res, 400, e.message); }
@@ -153,7 +190,8 @@ app.post('/api/admin/import', auth(['admin']), (req, res) => {
 app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public')));
 app.use((err, _q, res, _n) => { console.error(err); fail(res, 500, 'Something went wrong on our side'); });
 
-if (process.argv[1].endsWith('index.js')) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   seed();
+  ensureCatalogue();
   app.listen(process.env.PORT || 3000, () => console.log('Hamba running on http://localhost:' + (process.env.PORT || 3000)));
 }
