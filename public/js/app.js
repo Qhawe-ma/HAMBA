@@ -13,9 +13,8 @@ const FALLBACK = '/img/catalog/placeholder.svg';
 
 function R(n) {
   const v = Number(n) || 0;
-  const [w, f] = Math.abs(v).toFixed(2).split('.');
-  const g = w.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
-  return `${v < 0 ? '−' : ''}R\u00a0${g},${f}`;
+  const sign = v < 0 ? '−' : '';
+  return `${sign}R${Math.abs(v).toFixed(2)}`;
 }
 const hh = h => String(h).padStart(2, '0') + ':00';
 function when(s) {
@@ -32,6 +31,7 @@ function img(src, alt = '', opts = {}) {
 const pinSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></svg>`;
 const searchSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M16 16.5 20 20.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
 const bagSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8V7a3 3 0 0 1 6 0v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+const menuSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
 
 function emptyCart() { return { store: null, storeName: '', items: {} }; }
 function loadCart() {
@@ -44,7 +44,7 @@ function loadCart() {
 const S = {
   token: localStorage.getItem('t'), user: null, cart: loadCart(),
   tab: 'orders', dsid: null, loc: JSON.parse(localStorage.getItem('loc') || 'null'),
-  q: '', storeCat: 'All', storeQ: '',
+  q: '', storeCat: 'All', storeQ: '', homeFilter: 'All',
 };
 let current = { name: 'home' };
 let renderGen = 0;
@@ -78,30 +78,54 @@ function sizeNav() {
 
 function nav() {
   const u = S.user, n = cartCount();
-  const addr = S.loc?.address || 'Set your address';
+  const addr = S.loc?.address || 'Set delivery address';
   $('#nav').innerHTML = `
-    <a class="brand" href="#/" aria-label="Hamba home">
-      <img src="/img/mark.svg" alt="" width="32" height="32">
-      <span class="brand-name">hamba</span>
+    <button class="icon-btn" type="button" data-act="menu" aria-label="Open menu">${menuSvg}</button>
+    <a class="brand" href="#/" aria-label="Hamba home"><img src="/img/mark.svg" alt="" width="28" height="28"></a>
+    <button class="loc" type="button" data-act="focus-addr">${pinSvg}<span>${esc(addr)}</span></button>
+    <a class="basket" href="#/checkout" aria-label="Basket, ${n} items">
+      ${bagSvg}
+      <span><b>${n ? R(cartTotal()) : 'R0.00'}</b><small>${n} item${n === 1 ? '' : 's'}</small></span>
     </a>
-    <button class="loc" type="button" data-act="focus-addr">
-      ${pinSvg}
-      <span><small>Deliver to</small>${esc(addr)}</span>
-    </button>
-    <form class="search" role="search" data-form="search">
-      ${searchSvg}
-      <input id="q" name="q" type="search" placeholder="Search shops and products" value="${esc(S.q || '')}" aria-label="Search shops and products" autocomplete="off">
-    </form>
-    <div class="nav-actions">
-      ${u ? '<a href="#/orders">Orders</a>' : ''}
-      ${u && u.role !== 'customer' ? `<a href="#/dash">${u.role === 'admin' ? 'Admin' : 'Dashboard'}</a>` : ''}
-      <a class="basket" href="#/checkout" aria-label="Basket${n ? ', ' + n + ' items' : ''}">
-        ${bagSvg}<span class="basket-label">Basket</span>
-        ${n ? `<span class="basket-total">${R(cartTotal())}</span><span class="count">${n}</span>` : ''}
-      </a>
-      ${u ? '<button class="quiet-nav" type="button" data-act="out">Sign out</button>' : '<a href="#/login">Sign in</a>'}
-    </div>`;
+    ${u && u.role !== 'customer' ? `<a class="quiet-nav" href="#/dash">${u.role === 'admin' ? 'Admin' : 'Dashboard'}</a>` : ''}
+    ${u ? '<button class="quiet-nav" type="button" data-act="out">Sign out</button>' : '<a class="quiet-nav" href="#/login">Sign in</a>'}
+  `;
   sizeNav();
+  paintSide();
+}
+function paintSide() {
+  const el = document.getElementById('side');
+  if (!el) return;
+  const shop = ['home', 'browse', 'aisle', 'store', 'find', 'product', 'checkout', 'orders'].includes(current.name);
+  document.body.classList.toggle('with-side', shop);
+  if (!shop) { el.innerHTML = ''; return; }
+  if ((current.name === 'store' || current.name === 'product') && S.cur) {
+    const s = S.cur;
+    const have = new Set((s.products || []).map(p => p.category || 'Other'));
+    const cats = [...AISLE_ORDER.filter(c => have.has(c)), ...[...have].filter(c => !AISLE_ORDER.includes(c)).sort()];
+    el.innerHTML = `
+      <a class="side-shop" href="#/store/${s.id}">
+        ${img(s.image, '', { lazy: false, cls: 'side-thumb' })}
+        <span><b>${esc(s.name)}</b><small>${s.open ? esc(s.eta || 'Open') : 'Closed'}</small></span>
+      </a>
+      <button type="button" class="side-link ${S.storeCat === 'All' ? 'on' : ''}" data-act="scat" data-v="All">All items</button>
+      ${cats.map(c => `<button type="button" class="side-link ${S.storeCat === c ? 'on' : ''}" data-act="scat" data-v="${esc(c)}">${esc(c)}</button>`).join('')}
+    `;
+    return;
+  }
+  const aisles = S.aisles || [];
+  el.innerHTML = `
+    <a class="side-link ${current.name === 'home' ? 'on' : ''}" href="#/">All shops</a>
+    <a class="side-link ${S.browse === 'Fast food' ? 'on' : ''}" href="#/browse/${encodeURIComponent('Fast food')}">Takeaways</a>
+    <a class="side-link ${S.browse === 'Groceries' ? 'on' : ''}" href="#/browse/Groceries">Groceries</a>
+    <div class="side-label">Aisles</div>
+    ${aisles.map(a => `<a class="side-link ${current.name === 'aisle' && S.aisleName === a.name ? 'on' : ''}" href="#/aisle/${encodeURIComponent(a.name)}">${esc(a.name)}</a>`).join('')}
+    <div class="side-label">Account</div>
+    <a class="side-link" href="#/orders">Orders</a>
+    ${S.user && S.user.role !== 'customer' ? `<a class="side-link" href="#/dash">${S.user.role === 'admin' ? 'Admin' : 'Dashboard'}</a>` : ''}
+    ${S.user ? '<button class="side-link" type="button" data-act="out">Sign out</button>' : '<a class="side-link" href="#/login">Sign in</a>'}
+    <a class="side-link" href="mailto:hello@hamba.co.za">List your shop</a>
+  `;
 }
 
 function view(html) {
@@ -153,24 +177,45 @@ function qtyControl(p, store, q) {
 function productCard(p, store, opts = {}) {
   const q = qtyOf(store.id, p.id);
   const href = `#/store/${store.id}/p/${p.id}`;
-  const meta = [p.brand, p.pack].filter(Boolean).join(' · ');
-  return `<article class="pcard">
-    <a class="pcard-media" href="${href}" tabindex="-1" aria-hidden="true">${img(p.image)}${Number(p.available) ? '' : '<span class="flag">Sold out</span>'}</a>
-    <div class="pcard-body">
-      <a class="pcard-name" href="${href}">${esc(p.name)}</a>
-      ${meta ? `<p class="pcard-meta">${esc(meta)}</p>` : ''}
-      ${opts.showStore ? `<p class="pcard-shop">${esc(p.store_name || store.name)}</p>` : ''}
-      <div class="pcard-row"><span class="price">${R(p.price)}</span>${qtyControl(p, store, q)}</div>
+  const meta = [p.pack, opts.showStore ? (p.store_name || store.name) : ''].filter(Boolean).join(' · ');
+  return `<article class="pcard ${Number(p.available) ? '' : 'is-out'}">
+    <div class="pcard-media">
+      <a href="${href}" tabindex="-1" aria-hidden="true">${img(p.image)}${Number(p.available) ? '' : '<span class="flag">Sold out</span>'}</a>
+      <div class="pcard-add">${qtyControl(p, store, q)}</div>
     </div>
+    <a class="pcard-name" href="${href}">${esc(p.name)}</a>
+    <div class="price">${Number(p.available) ? R(p.price) : 'Sold out'}</div>
+    ${meta ? `<p class="pcard-meta">${esc(meta)}</p>` : ''}
   </article>`;
+}
+function menuRow(p, store) {
+  const q = qtyOf(store.id, p.id);
+  const href = `#/store/${store.id}/p/${p.id}`;
+  const desc = [p.pack, p.blurb].filter(Boolean).join(' · ');
+  return `<article class="mrow ${Number(p.available) ? '' : 'is-out'}">
+    <div class="mrow-copy">
+      <a class="mrow-name" href="${href}">${esc(p.name)}</a>
+      <div class="price">${Number(p.available) ? R(p.price) : 'Sold out'}</div>
+      ${desc ? `<p class="mrow-desc">${esc(desc)}</p>` : ''}
+    </div>
+    ${qtyControl(p, store, q)}
+  </article>`;
+}
+function photoTile(p, store) {
+  const href = `#/store/${store.id}/p/${p.id}`;
+  return `<a class="rcard" href="${href}">
+    ${img(p.image, '')}
+    <b>${esc(p.name)}</b>
+    <span class="price">${R(p.price)}</span>
+    ${p.pack ? `<span class="muted">${esc(p.pack)}</span>` : ''}
+  </a>`;
 }
 function storeCard(s) {
   return `<a class="scard${s.open ? '' : ' is-shut'}" href="#/store/${s.id}">
-    <span class="scard-media">${img(s.image)}<span class="pill ${s.open ? 'ok' : 'no'}">${s.open ? 'Open' : 'Closed'}</span></span>
+    <span class="scard-media">${img(s.image)}${s.open ? '' : '<span class="closed-tag">Closed</span>'}</span>
     <span class="scard-body">
       <strong>${esc(s.name)}</strong>
-      <span>${esc(s.category)} · ${esc(s.address)}</span>
-      <span>${esc(s.eta || '')} · ${R(s.delivery_fee ?? 25)} delivery</span>
+      <span>${s.open ? esc(s.eta || '') : 'Closed'} · ${esc(s.address)}</span>
     </span>
   </a>`;
 }
@@ -198,57 +243,30 @@ function storeOf(p, storeId) {
   if (S.cur && Number(S.cur.id) === Number(storeId || p.store_id)) return { id: S.cur.id, name: S.cur.name, open: !!S.cur.open };
   return { id: p.store_id, name: p.store_name, open: !!p.store_open };
 }
-function basketBar(store) {
-  if (!(cartCount() && Number(S.cart.store) === Number(store.id))) {
-    document.body.classList.remove('has-basket');
-    return '';
-  }
-  document.body.classList.add('has-basket');
-  const n = cartCount();
-  return `<div class="basket-bar"><div><b>${R(cartTotal())}</b><div class="muted">${n} item${n === 1 ? '' : 's'} · ${esc(store.name)}</div></div><a class="btn primary" href="#/checkout">Checkout</a></div>`;
-}
-
 function drawHome() {
   setTitle('');
   const aisles = S.aisles || [];
   const featured = S.featured || [];
-  view(`<section class="intro">
-      <p class="kicker">Greytown</p>
-      <h1>Groceries and takeaways, delivered.</h1>
-      <p class="lede">Order from shops in town. One order at a time, tracked to your gate. Pay when it arrives.</p>
-      <div class="addr-row">
-        <input id="addr" placeholder="Street and house number" value="${esc(S.loc?.address || '')}" aria-label="Delivery address" autocomplete="street-address">
-        <button class="btn primary" type="button" data-act="go">Deliver here</button>
-        <button class="linkish" type="button" data-act="gps">Use current location</button>
-      </div>
-    </section>
-    <section class="sec" aria-labelledby="aisle-h">
-      <div class="sec-head"><h2 id="aisle-h">Shop by aisle</h2></div>
-      <div class="aisles">
-        ${SHOP_TYPES.map(t => aisleTile(`#/browse/${encodeURIComponent(t.category)}`, t.image, t.name)).join('')}
-        ${aisles.map(a => aisleTile(`#/aisle/${encodeURIComponent(a.name)}`, a.image, a.name)).join('')}
-      </div>
-    </section>
-    <section class="sec" id="stores" aria-labelledby="shops-h">
-      <div class="sec-head"><h2 id="shops-h">Shops in Greytown</h2></div>
-      <div class="grid-stores">${(S.stores || []).map(storeCard).join('') || '<p class="muted">No shops are listed yet.</p>'}</div>
-    </section>
-    ${featured.length ? `<section class="sec" aria-labelledby="pop-h">
-      <div class="sec-head"><h2 id="pop-h">Popular from the grocer</h2><a href="#/browse/Groceries">All groceries</a></div>
-      <div class="grid-products">${featured.map(p => productCard(p, storeOf(p), { showStore: true })).join('')}</div>
-    </section>` : ''}
-    <section class="notes" aria-label="How Hamba works">
-      <article class="note"><h3>One shop at a time</h3><p>Your driver collects a single order, so hot food stays hot and cold groceries stay cold.</p></article>
-      <article class="note"><h3>Tracked to your gate</h3><p>Follow the order on the map from the shop to your address.</p></article>
-      <article class="note"><h3>Pay on delivery</h3><p>Cash when it arrives. Card and EFT are not available yet.</p></article>
-    </section>
-    <section class="sec" aria-labelledby="work-h">
-      <div class="sec-head"><h2 id="work-h">Work with Hamba</h2></div>
-      <div class="partner-grid">
-        <a href="mailto:hello@hamba.co.za?subject=List%20my%20shop"><b>List your shop</b><span>Reach more people in Greytown and manage orders from your phone.</span><em>Get in touch</em></a>
-        <a href="mailto:hello@hamba.co.za?subject=Drive%20with%20Hamba"><b>Drive with Hamba</b><span>Choose your hours and keep every rand of your tips.</span><em>Get in touch</em></a>
-      </div>
-    </section>`);
+  let shops = S.stores || [];
+  if (S.homeFilter === 'Open') shops = shops.filter(s => s.open);
+  else if (S.homeFilter === 'Groceries' || S.homeFilter === 'Fast food') shops = shops.filter(s => s.category === S.homeFilter);
+  const filters = [['All', 'All'], ['Open', 'Open now'], ['Groceries', 'Groceries'], ['Fast food', 'Takeaways']];
+  view(`<form class="finder" role="search" data-form="search">${searchSvg}<input id="q" name="q" type="search" placeholder="Search shops and products" value="${esc(S.q || '')}" aria-label="Search shops and products" autocomplete="off"></form>
+    <div class="page-head"><h1>Greytown</h1></div>
+    <div class="addr-line">
+      <input id="addr" placeholder="Street and house number" value="${esc(S.loc?.address || '')}" aria-label="Delivery address" autocomplete="street-address">
+      <button class="linkish" type="button" data-act="gps">Use current location</button>
+    </div>
+    <div class="aisles">
+      ${SHOP_TYPES.map(t => aisleTile(`#/browse/${encodeURIComponent(t.category)}`, t.image, t.name)).join('')}
+      ${aisles.map(a => aisleTile(`#/aisle/${encodeURIComponent(a.name)}`, a.image, a.name)).join('')}
+    </div>
+    <div class="chips" role="tablist">
+      ${filters.map(([v, label]) => `<button class="chip ${S.homeFilter === v ? 'on' : ''}" type="button" data-act="hfilter" data-v="${v}">${label}</button>`).join('')}
+    </div>
+    <h2 class="block-title">${shops.length} near you</h2>
+    <div class="grid-stores" id="stores">${shops.length ? shops.map(storeCard).join('') : '<p class="muted">No shops match that filter.</p>'}</div>
+    ${featured.length ? `<h2 class="block-title">Popular</h2><div class="rail">${featured.map(p => photoTile(p, storeOf(p))).join('')}</div>` : ''}`);
 }
 
 function drawBrowse() {
@@ -267,7 +285,7 @@ function drawAisle() {
   view(`${crumbs([{ href: '#/', label: 'Shops' }, { label: name || 'Aisle' }])}
     <div class="sec-head"><h1>${esc(name || 'Aisle')}</h1></div>
     <p class="muted" style="margin-top:0">${list.length} product${list.length === 1 ? '' : 's'} from groceries in Greytown.</p>
-    ${list.length ? `<div class="grid-products">${list.map(p => productCard(p, storeOf(p), { showStore: true })).join('')}</div>` : emptyState({ title: 'Nothing in this aisle', body: 'Try another aisle, or search for the product by name.', href: '#/', label: 'Back to shops' })}`);
+    ${list.length ? `<div class="pgrid">${list.map(p => productCard(p, storeOf(p), { showStore: true })).join('')}</div>` : emptyState({ title: 'Nothing in this aisle', body: 'Try another aisle, or search for the product by name.', href: '#/', label: 'Back to shops' })}`);
 }
 
 function drawFind() {
@@ -280,7 +298,7 @@ function drawFind() {
     ${q ? '' : '<p class="lede">Search for milk, bread, a kota, or a shop.</p>'}
     ${q && !shops.length && !products.length ? emptyState({ title: 'No matches', body: `Nothing on Hamba matches “${q}”. Try a shorter word.`, href: '#/', label: 'Browse shops' }) : ''}
     ${shops.length ? `<section class="sec"><div class="sec-head"><h2>Shops</h2></div><div class="grid-stores">${shops.map(storeCard).join('')}</div></section>` : ''}
-    ${products.length ? `<section class="sec"><div class="sec-head"><h2>Products</h2></div><div class="grid-products">${products.map(p => productCard(p, storeOf(p), { showStore: true })).join('')}</div></section>` : ''}`);
+    ${products.length ? `<h2 class="block-title">Products</h2><div class="pgrid">${products.map(p => productCard(p, storeOf(p), { showStore: true })).join('')}</div>` : ''}`);
 }
 
 function drawStore() {
@@ -301,23 +319,29 @@ function drawStore() {
   const grid = groups.map(cat => {
     const items = list.filter(p => (S.storeCat !== 'All' || q) ? true : (p.category || 'Other') === cat);
     if (!items.length) return '';
-    const cards = `<div class="grid-products">${items.map(p => productCard(p, store)).join('')}</div>`;
-    return S.storeCat === 'All' && !q ? `<section class="sec"><h2 style="margin-bottom:12px">${esc(cat)}</h2>${cards}</section>` : cards;
+    const cards = `<div class="mgrid">${items.map(p => menuRow(p, store)).join('')}</div>`;
+    return S.storeCat === 'All' && !q ? `<section class="block"><h2 class="block-title">${esc(cat)}</h2>${cards}</section>` : cards;
   }).join('');
-  view(`${crumbs([{ href: '#/', label: 'Shops' }, { label: s.name }])}
-    ${s.image ? img(s.image, '', { lazy: false, cls: 'mast-cover' }) : ''}
-    <div class="mast-body">
-      <h1>${esc(s.name)}</h1>
-      <p class="muted" style="margin:0">${esc(s.address)}, Greytown · ${esc(s.eta)} · ${R(s.delivery_fee)} delivery</p>
-      <p class="muted">${esc(s.blurb || '')} Trades ${hh(s.open_h)}–${hh(s.close_h)}. <span class="pill ${s.open ? 'ok' : 'no'}">${s.open ? 'Open now' : 'Closed'}</span></p>
+  const popular = [];
+  for (const cat of cats) {
+    if (cat === 'All') continue;
+    const hit = s.products.find(p => (p.category || 'Other') === cat && Number(p.available));
+    if (hit) popular.push(hit);
+    if (popular.length === 8) break;
+  }
+  view(`<form class="finder" role="search" onsubmit="return false">${searchSvg}<input id="sq" type="search" placeholder="Search ${esc(s.name)}" value="${esc(S.storeQ || '')}" aria-label="Search this shop"></form>
+    <div class="shop-head">
+      ${img(s.image, '', { lazy: false, cls: 'shop-thumb' })}
+      <div>
+        <h1>${esc(s.name)}</h1>
+        <p class="muted">${esc(s.blurb || '')} ${esc(s.address)} · ${s.open ? esc(s.eta) : 'Closed'} · ${hh(s.open_h)}–${hh(s.close_h)}</p>
+        <span class="pill ${s.open ? 'ok' : 'no'}">${s.open ? 'Open now' : 'Closed'}</span>
+      </div>
     </div>
     ${s.open ? '' : `<div class="banner-note">${esc(s.name)} is closed right now. You can look around. Orders open again at ${hh(s.open_h)}.</div>`}
-    <div class="chips sticky" role="tablist" aria-label="Aisles in this shop">
-      ${cats.map(c => `<button class="chip ${c === S.storeCat ? 'on' : ''}" type="button" data-act="scat" data-v="${esc(c)}" role="tab" aria-selected="${c === S.storeCat}">${esc(c)}</button>`).join('')}
-    </div>
-    <input id="sq" type="search" placeholder="Search ${esc(s.name)}" value="${esc(S.storeQ || '')}" aria-label="Search this shop" style="margin:4px 0 14px">
-    ${list.length ? grid : '<p class="muted">Nothing in this shop matches.</p>'}
-    ${basketBar(store)}`);
+    ${popular.length && S.storeCat === 'All' && !q ? `<h2 class="block-title">Popular</h2><div class="rail">${popular.map(p => photoTile(p, store)).join('')}</div>` : ''}
+    ${list.length ? grid : '<p class="muted">Nothing in this shop matches.</p>'}`);
+  paintSide();
 }
 
 function drawProduct() {
@@ -332,21 +356,19 @@ function drawProduct() {
     : !s.open
       ? `<p class="banner-note">${esc(s.name)} is closed, so this cannot be added yet.</p>`
       : (q ? qtyControl(p, store, q) : `<button class="btn primary" type="button" data-act="inc" data-v="${p.id}" data-store="${s.id}">Add to basket</button>`);
-  view(`${crumbs([{ href: '#/', label: 'Shops' }, { href: `#/store/${s.id}`, label: s.name }, { label: p.name }])}
+  view(`<p class="crumbs"><a href="#/store/${s.id}">${esc(s.name)}</a></p>
     <div class="detail">
-      <div class="detail-media">${img(p.image, p.name)}</div>
-      <div>
-        ${p.brand ? `<p class="brand-line">${esc(p.brand)}</p>` : ''}
+      <div class="detail-media">${img(p.image, p.name, { lazy: false })}</div>
+      <div class="detail-copy">
+        <p class="price detail-price">${Number(p.available) ? R(p.price) : 'Sold out'}</p>
         <h1>${esc(p.name)}</h1>
-        <p class="muted" style="margin-top:0">${esc(p.pack || '')}${p.category ? ` · ${esc(p.category)}` : ''}</p>
-        <p class="price">${R(p.price)}</p>
+        <p class="muted">${esc([p.pack, p.category].filter(Boolean).join(' · '))}</p>
         <p>${esc(p.blurb || '')}</p>
-        <p class="muted">From <a href="#/store/${s.id}" style="color:var(--primary);font-weight:700">${esc(s.name)}</a> · ${esc(s.eta)} · ${R(s.delivery_fee)} delivery</p>
-        ${control}
+        <p class="muted">${esc(s.name)} · ${s.open ? esc(s.eta) : 'Closed'} · ${R(s.delivery_fee)} delivery</p>
+        <div class="detail-act">${control}</div>
       </div>
     </div>
-    ${related.length ? `<section class="sec"><div class="sec-head"><h2>More in ${esc(p.category || 'this shop')}</h2></div><div class="grid-products">${related.map(x => productCard(x, store)).join('')}</div></section>` : ''}
-    ${basketBar(store)}`);
+    ${related.length ? `<h2 class="block-title">More in ${esc(p.category || 'this shop')}</h2><div class="rail">${related.map(x => photoTile(x, store)).join('')}</div>` : ''}`);
 }
 
 function drawCheckout() {
@@ -681,6 +703,7 @@ async function route() {
   catch (e) { if (my === renderGen) view(errorState(e.message)); }
   clearTimeout(timer);
   if (my !== renderGen) return;
+  document.body.classList.remove('side-open');
   nav();
   scrollTo(0, 0);
   if (S.focusAddr) {
@@ -698,10 +721,19 @@ function signIn(d) {
 }
 
 document.addEventListener('click', async e => {
+  if (e.target.closest('#side')) document.body.classList.remove('side-open');
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act, v = b.dataset.v;
   try {
-    if (a === 'scat') { S.storeCat = v; drawStore(); }
+    if (a === 'scat') {
+      S.storeCat = v;
+      current.name = 'store';
+      if (S.cur) history.replaceState(null, '', '#/store/' + S.cur.id);
+      drawStore();
+    }
+    else if (a === 'hfilter') { S.homeFilter = v; drawHome(); }
+    else if (a === 'menu') document.body.classList.toggle('side-open');
+    else if (a === 'menu-close') document.body.classList.remove('side-open');
     else if (a === 'focus-addr') {
       const home = location.hash === '' || location.hash === '#' || location.hash === '#/';
       S.focusAddr = true;
