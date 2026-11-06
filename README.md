@@ -47,6 +47,20 @@ hamba/
 - Admin: everything above for any store, plus totals
 - Server calculates prices itself, so customers cannot change them
 
+## Catalogue
+
+Shops start with a seed catalogue in `server/catalogue.js`: everyday South African groceries (with pack sizes and ZAR prices) plus takeaway menus. Photos in `public/img/catalog` are generic Unsplash pictures, not brand pack shots. Do not scrape Shoprite or copy their images.
+
+The same item shape is what a real supplier feed should send:
+
+```json
+{ "sku": "SR-MILK-FC", "name": "Clover full cream milk", "brand": "Clover", "category": "Dairy & Eggs", "pack": "2 L", "price": 36.99, "image": "/img/catalog/milk.jpg", "blurb": "Keep refrigerated." }
+```
+
+`name` and `price` are required. Load a feed with `POST /api/admin/import` as an admin (`store_code` plus `products`), or call `importProducts(code, list)` from `server/db.js`. The scraper uses that same function.
+
+The first launch replaces the original short placeholder menu when those are the only products in the database. Products you added yourself are kept. Stock toggles are not reset on later launches. Delete `hamba.db` if you want a clean reseed.
+
 ## Products from real sites
 
 Copy `scraper/sites.example.json` to `scraper/sites.json`, fill in the page URL and the CSS selectors for each item, name and price, then run `npm run scrape`. It respects robots.txt and waits between requests. Only scrape sites that allow it or have given you permission. KFC, Hungry Lion and Shoprite have no public product feeds, so for them agree a feed or enter products in the dashboard. Pages that build their menu with JavaScript need a headless browser (Playwright) instead of this scraper.

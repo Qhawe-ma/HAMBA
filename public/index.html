@@ -4,31 +4,58 @@
 <meta charset="utf-8">
 <title>Hamba — Greytown delivery</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#070708">
-<meta name="description" content="Food and groceries from Greytown's shops, delivered fast.">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="Groceries and takeaways from shops in Greytown, delivered.">
+<link rel="icon" href="/img/mark.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-<header id="nav"></header>
-<main id="view"></main>
-<footer>
-  <div>
-    <b class="logo">hamba</b>
-    <p>Food and groceries from Greytown's shops, delivered.</p>
+<a class="skip" href="#view">Skip to content</a>
+<div class="shell">
+  <header id="nav"></header>
+  <div class="shell-body">
+    <aside id="side"></aside>
+    <button class="scrim" type="button" data-act="menu-close" aria-label="Close menu"></button>
+    <main id="view" tabindex="-1"></main>
   </div>
-  <div>
-    <b>Delivering in</b>
-    <p>Greytown now. Kranskop, Mooi River, Dundee and Estcourt next.</p>
-  </div>
-  <div>
-    <b>Work with us</b>
-    <p><a href="mailto:hello@hamba.co.za">List your shop</a><br><a href="mailto:hello@hamba.co.za">Become a driver</a></p>
+</div>
+<footer class="site-foot">
+  <div class="wrap">
+    <span class="brand-name">hamba</span>
+    <span>Greytown now. Kranskop, Mooi River, Dundee and Estcourt next.</span>
+    <span><a href="mailto:hello@hamba.co.za">List your shop</a> · <a href="mailto:hello@hamba.co.za">Drive with Hamba</a></span>
   </div>
 </footer>
 <div id="toast" role="status"></div>
+<dialog id="addrbox" aria-labelledby="addr-title">
+  <h2 id="addr-title">Delivery address</h2>
+  <label class="field">Street and area
+    <input id="addr-edit" placeholder="Street, house number, Greytown" autocomplete="street-address">
+  </label>
+  <div class="dialog-actions">
+    <button type="button" class="btn quiet" data-act="gps">Use current location</button>
+    <button type="button" class="btn primary" data-act="save-addr">Save address</button>
+  </div>
+</dialog>
+<div id="pmod" class="pmod" hidden>
+  <button class="pmod-back" type="button" data-act="close-product" aria-label="Close product"></button>
+  <div class="pmod-card" role="dialog" aria-modal="true" aria-labelledby="pmod-title"></div>
+</div>
+<div id="drawer" class="drawer" hidden>
+  <button class="drawer-back" type="button" data-act="close-cart" aria-label="Close basket"></button>
+  <aside class="drawer-panel" aria-label="Review cart"></aside>
+</div>
+<dialog id="confirm" aria-labelledby="confirm-title">
+  <h2 id="confirm-title">Start a new basket?</h2>
+  <p id="confirm-copy"></p>
+  <div class="dialog-actions">
+    <button type="button" class="btn quiet" data-act="switch-no">Keep current basket</button>
+    <button type="button" class="btn primary" data-act="switch-ok">Start new basket</button>
+  </div>
+</dialog>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/js/app.js"></script>
 </body>
