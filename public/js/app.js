@@ -41,11 +41,26 @@ function loadCart() {
   } catch { /* ignore a damaged basket */ }
   return emptyCart();
 }
+const DEALS = {
+  'SR-MILK-FC': '2 for R69.99',
+  'SR-EGGS-18': '2 for R119.99',
+  'SR-BREAD-BR': 'R2 off',
+  'SR-COLA-2': '2 for R44.99',
+  'SR-BANANA': 'R2 off',
+  'SP-HB-MILK': 'Special',
+  'SR-CHICKEN': 'Save R10',
+};
+const dealFor = p => (p && DEALS[p.sku]) || '';
 const S = {
   token: localStorage.getItem('t'), user: null, cart: loadCart(),
   tab: 'orders', dsid: null, loc: JSON.parse(localStorage.getItem('loc') || 'null'),
   q: '', storeCat: 'All', storeQ: '', homeFilter: 'All',
 };
+if (!S.loc?.address) {
+  S.loc = { address: 'Bell Street, Greytown' };
+  localStorage.setItem('loc', JSON.stringify(S.loc));
+}
+const addrText = () => (S.loc && S.loc.address) || '';
 let current = { name: 'home' };
 let renderGen = 0;
 
@@ -78,15 +93,15 @@ function sizeNav() {
 
 function nav() {
   const u = S.user, n = cartCount();
-  const addr = S.loc?.address || 'Set delivery address';
+  const addr = addrText() || 'Set delivery address';
   $('#nav').innerHTML = `
     <button class="icon-btn" type="button" data-act="menu" aria-label="Open menu">${menuSvg}</button>
     <a class="brand" href="#/" aria-label="Hamba home"><img src="/img/mark.svg" alt="" width="28" height="28"></a>
     <button class="loc" type="button" data-act="focus-addr">${pinSvg}<span>${esc(addr)}</span></button>
-    <a class="basket" href="#/checkout" aria-label="Basket, ${n} items">
+    <button class="basket ${n ? 'on' : ''}" type="button" data-act="cart" aria-label="Basket, ${n} items">
       ${bagSvg}
       <span><b>${n ? R(cartTotal()) : 'R0.00'}</b><small>${n} item${n === 1 ? '' : 's'}</small></span>
-    </a>
+    </button>
     ${u && u.role !== 'customer' ? `<a class="quiet-nav" href="#/dash">${u.role === 'admin' ? 'Admin' : 'Dashboard'}</a>` : ''}
     ${u ? '<button class="quiet-nav" type="button" data-act="out">Sign out</button>' : '<a class="quiet-nav" href="#/login">Sign in</a>'}
   `;
@@ -108,23 +123,21 @@ function paintSide() {
         ${img(s.image, '', { lazy: false, cls: 'side-thumb' })}
         <span><b>${esc(s.name)}</b><small>${s.open ? esc(s.eta || 'Open') : 'Closed'}</small></span>
       </a>
-      <button type="button" class="side-link ${S.storeCat === 'All' ? 'on' : ''}" data-act="scat" data-v="All">All items</button>
+      <button type="button" class="side-link ${S.storeCat === 'All' ? 'on' : ''}" data-act="scat" data-v="All">Browse all</button>
       ${cats.map(c => `<button type="button" class="side-link ${S.storeCat === c ? 'on' : ''}" data-act="scat" data-v="${esc(c)}">${esc(c)}</button>`).join('')}
     `;
     return;
   }
-  const aisles = S.aisles || [];
   el.innerHTML = `
-    <a class="side-link ${current.name === 'home' ? 'on' : ''}" href="#/">All shops</a>
     <a class="side-link ${S.browse === 'Fast food' ? 'on' : ''}" href="#/browse/${encodeURIComponent('Fast food')}">Takeaways</a>
     <a class="side-link ${S.browse === 'Groceries' ? 'on' : ''}" href="#/browse/Groceries">Groceries</a>
-    <div class="side-label">Aisles</div>
-    ${aisles.map(a => `<a class="side-link ${current.name === 'aisle' && S.aisleName === a.name ? 'on' : ''}" href="#/aisle/${encodeURIComponent(a.name)}">${esc(a.name)}</a>`).join('')}
-    <div class="side-label">Account</div>
+    <a class="side-link ${current.name === 'home' ? 'on' : ''}" href="#/">All shops</a>
+    <div class="side-label">Help</div>
     <a class="side-link" href="#/orders">Orders</a>
     ${S.user && S.user.role !== 'customer' ? `<a class="side-link" href="#/dash">${S.user.role === 'admin' ? 'Admin' : 'Dashboard'}</a>` : ''}
     ${S.user ? '<button class="side-link" type="button" data-act="out">Sign out</button>' : '<a class="side-link" href="#/login">Sign in</a>'}
-    <a class="side-link" href="mailto:hello@hamba.co.za">List your shop</a>
+    <a class="side-link" href="mailto:hello@hamba.co.za?subject=List%20my%20shop">List your shop</a>
+    <a class="side-link" href="mailto:hello@hamba.co.za?subject=Drive%20with%20Hamba">Drive with Hamba</a>
   `;
 }
 
@@ -163,16 +176,41 @@ function qtyOf(storeId, productId) {
   if (Number(S.cart.store) !== Number(storeId)) return 0;
   return S.cart.items[productId]?.q || 0;
 }
-function qtyControl(p, store, q) {
+function qtyControl(p, store, q, square) {
   const blocked = !Number(p.available) || !store.open;
+  const shape = square ? ' sq' : '';
   if (!q) {
-    return `<button class="add" type="button" data-act="inc" data-v="${p.id}" data-store="${store.id}" ${blocked ? 'disabled' : ''} aria-label="Add ${esc(p.name)}">+</button>`;
+    return `<button class="add${shape}" type="button" data-act="inc" data-v="${p.id}" data-store="${store.id}" ${blocked ? 'disabled' : ''} aria-label="Add ${esc(p.name)}">+</button>`;
   }
-  return `<span class="stepper">
+  return `<span class="stepper${shape}">
     <button type="button" data-act="dec" data-v="${p.id}" data-store="${store.id}" aria-label="Remove one ${esc(p.name)}">−</button>
     <b>${q}</b>
     <button type="button" data-act="inc" data-v="${p.id}" data-store="${store.id}" ${blocked || q >= 20 ? 'disabled' : ''} aria-label="Add one ${esc(p.name)}">+</button>
   </span>`;
+}
+function tileCard(p, store) {
+  const q = qtyOf(store.id, p.id);
+  const href = `#/store/${store.id}/p/${p.id}`;
+  const deal = dealFor(p);
+  return `<article class="gtile ${Number(p.available) ? '' : 'is-out'}">
+    <a class="gtile-media" href="${href}">
+      ${img(p.image, '')}
+      ${deal ? `<span class="deal">${esc(deal)}</span>` : ''}
+      ${Number(p.available) ? '' : '<span class="flag">Sold out</span>'}
+    </a>
+    <div class="gtile-add">${qtyControl(p, store, q, true)}</div>
+    <div class="gtile-price">${Number(p.available) ? R(p.price) : 'Sold out'}</div>
+    <a class="gtile-name" href="${href}">${esc(p.name)}</a>
+    ${p.pack ? `<div class="muted">${esc(p.pack)}</div>` : ''}
+  </article>`;
+}
+function promoStrip() {
+  const cards = [
+    ['/img/catalog/aisle.jpg', 'Groceries to your door', 'Shoprite and Spar in Greytown, for R25.', '#/browse/Groceries', 'Shop now'],
+    ['/img/catalog/fried.jpg', 'Takeaways on their own run', 'One shop at a time, so hot food stays hot.', '#/browse/Fast%20food', 'Order now'],
+    ['/img/catalog/bread.jpg', 'Pay when it arrives', 'Cash on delivery, tracked to your gate.', '#/', 'See shops'],
+  ];
+  return `<div class="promos">${cards.map(c => `<a class="promo" href="${c[3]}"><img src="${c[0]}" alt=""><span><b>${c[1]}</b><small>${c[2]}</small><em>${c[4]}</em></span></a>`).join('')}</div>`;
 }
 function productCard(p, store, opts = {}) {
   const q = qtyOf(store.id, p.id);
@@ -212,7 +250,7 @@ function photoTile(p, store) {
 }
 function storeCard(s) {
   return `<a class="scard${s.open ? '' : ' is-shut'}" href="#/store/${s.id}">
-    <span class="scard-media">${img(s.image)}${s.open ? '' : '<span class="closed-tag">Closed</span>'}</span>
+    <span class="scard-media">${img(s.image)}${s.open ? '<span class="order-pill">Order now</span>' : '<span class="closed-tag">Closed</span>'}</span>
     <span class="scard-body">
       <strong>${esc(s.name)}</strong>
       <span>${s.open ? esc(s.eta || '') : 'Closed'} · ${esc(s.address)}</span>
@@ -251,21 +289,27 @@ function drawHome() {
   if (S.homeFilter === 'Open') shops = shops.filter(s => s.open);
   else if (S.homeFilter === 'Groceries' || S.homeFilter === 'Fast food') shops = shops.filter(s => s.category === S.homeFilter);
   const filters = [['All', 'All'], ['Open', 'Open now'], ['Groceries', 'Groceries'], ['Fast food', 'Takeaways']];
+  const hasAddr = !!addrText();
   view(`<form class="finder" role="search" data-form="search">${searchSvg}<input id="q" name="q" type="search" placeholder="Search shops and products" value="${esc(S.q || '')}" aria-label="Search shops and products" autocomplete="off"></form>
-    <div class="page-head"><h1>Greytown</h1></div>
-    <div class="addr-line">
-      <input id="addr" placeholder="Street and house number" value="${esc(S.loc?.address || '')}" aria-label="Delivery address" autocomplete="street-address">
-      <button class="linkish" type="button" data-act="gps">Use current location</button>
+    <section class="hero-banner">
+      <img src="/img/catalog/kota.jpg" alt="">
+      <div>
+        <h1>Order from shops in Greytown</h1>
+        <p>Groceries and takeaways, one order at a time. Pay when it arrives.</p>
+        ${hasAddr ? `<p class="hero-place">${pinSvg}<span>${esc(addrText())}</span></p>` : `<div class="hero-actions"><button class="btn primary" type="button" data-act="focus-addr">Enter address</button><button class="btn quiet" type="button" data-act="gps">Use current location</button></div>`}
+      </div>
+    </section>
+    ${promoStrip()}
+    <div class="row-head"><h2 class="block-title">${shops.length} near you</h2></div>
+    <div class="rail store-rail" id="stores">${shops.length ? shops.map(storeCard).join('') : '<p class="muted">No shops match that filter.</p>'}</div>
+    <div class="chips" role="tablist">
+      ${filters.map(([v, label]) => `<button class="chip ${S.homeFilter === v ? 'on' : ''}" type="button" data-act="hfilter" data-v="${v}">${label}</button>`).join('')}
     </div>
+    <h2 class="block-title">Shop by aisle</h2>
     <div class="aisles">
       ${SHOP_TYPES.map(t => aisleTile(`#/browse/${encodeURIComponent(t.category)}`, t.image, t.name)).join('')}
       ${aisles.map(a => aisleTile(`#/aisle/${encodeURIComponent(a.name)}`, a.image, a.name)).join('')}
     </div>
-    <div class="chips" role="tablist">
-      ${filters.map(([v, label]) => `<button class="chip ${S.homeFilter === v ? 'on' : ''}" type="button" data-act="hfilter" data-v="${v}">${label}</button>`).join('')}
-    </div>
-    <h2 class="block-title">${shops.length} near you</h2>
-    <div class="grid-stores" id="stores">${shops.length ? shops.map(storeCard).join('') : '<p class="muted">No shops match that filter.</p>'}</div>
     ${featured.length ? `<h2 class="block-title">Popular</h2><div class="rail">${featured.map(p => photoTile(p, storeOf(p))).join('')}</div>` : ''}`);
 }
 
@@ -319,7 +363,10 @@ function drawStore() {
   const grid = groups.map(cat => {
     const items = list.filter(p => (S.storeCat !== 'All' || q) ? true : (p.category || 'Other') === cat);
     if (!items.length) return '';
-    const cards = `<div class="mgrid">${items.map(p => menuRow(p, store)).join('')}</div>`;
+    const grocery = s.category === 'Groceries';
+    const cards = grocery
+      ? `<div class="tgrid">${items.map(p => tileCard(p, store)).join('')}</div>`
+      : `<div class="mgrid">${items.map(p => menuRow(p, store)).join('')}</div>`;
     return S.storeCat === 'All' && !q ? `<section class="block"><h2 class="block-title">${esc(cat)}</h2>${cards}</section>` : cards;
   }).join('');
   const popular = [];
@@ -339,36 +386,89 @@ function drawStore() {
       </div>
     </div>
     ${s.open ? '' : `<div class="banner-note">${esc(s.name)} is closed right now. You can look around. Orders open again at ${hh(s.open_h)}.</div>`}
+    ${s.category === 'Groceries' && S.storeCat === 'All' && !q ? promoStrip() : ''}
     ${popular.length && S.storeCat === 'All' && !q ? `<h2 class="block-title">Popular</h2><div class="rail">${popular.map(p => photoTile(p, store)).join('')}</div>` : ''}
     ${list.length ? grid : '<p class="muted">Nothing in this shop matches.</p>'}`);
   paintSide();
 }
 
-function drawProduct() {
-  const s = S.cur, p = S.product;
+function hideProductModal() {
+  const m = document.getElementById('pmod');
+  if (m) m.hidden = true;
+  document.body.classList.remove('modal-open');
+  S.modalProduct = null;
+}
+function showProductModal(p) {
+  const s = S.cur;
   if (!s || !p) return;
-  setTitle(p.name);
+  S.modalProduct = p;
   const store = { id: s.id, name: s.name, open: !!s.open };
   const q = qtyOf(s.id, p.id);
-  const related = s.products.filter(x => x.category === p.category && x.id !== p.id).slice(0, 4);
-  const control = !Number(p.available)
-    ? '<p class="banner-note">Sold out.</p>'
-    : !s.open
-      ? `<p class="banner-note">${esc(s.name)} is closed, so this cannot be added yet.</p>`
-      : (q ? qtyControl(p, store, q) : `<button class="btn primary" type="button" data-act="inc" data-v="${p.id}" data-store="${s.id}">Add to basket</button>`);
-  view(`<p class="crumbs"><a href="#/store/${s.id}">${esc(s.name)}</a></p>
-    <div class="detail">
-      <div class="detail-media">${img(p.image, p.name, { lazy: false })}</div>
-      <div class="detail-copy">
-        <p class="price detail-price">${Number(p.available) ? R(p.price) : 'Sold out'}</p>
-        <h1>${esc(p.name)}</h1>
-        <p class="muted">${esc([p.pack, p.category].filter(Boolean).join(' · '))}</p>
+  const deal = dealFor(p);
+  const card = document.querySelector('#pmod .pmod-card');
+  card.innerHTML = `
+    <button class="pmod-x" type="button" data-act="close-product" aria-label="Close">×</button>
+    <div class="pmod-grid">
+      <div class="pmod-photo">${img(p.image, p.name, { lazy: false })}</div>
+      <div>
+        <p class="gtile-price pmod-price">${Number(p.available) ? R(p.price) : 'Sold out'}</p>
+        <h2 id="pmod-title">${esc(p.name)}</h2>
+        <p class="muted">${esc([p.pack, p.brand].filter(Boolean).join(' · '))}</p>
+        ${deal ? `<div class="deal-bar">${esc(deal)}</div>` : ''}
         <p>${esc(p.blurb || '')}</p>
-        <p class="muted">${esc(s.name)} · ${s.open ? esc(s.eta) : 'Closed'} · ${R(s.delivery_fee)} delivery</p>
-        <div class="detail-act">${control}</div>
+        <p class="muted">${esc(s.name)} · ${s.open ? esc(s.eta) : 'Closed'}</p>
+        <div class="pmod-act">
+          ${Number(p.available) && s.open ? qtyControl(p, store, q, true) : ''}
+          ${!Number(p.available) ? '<span class="banner-note">Sold out.</span>' : !s.open ? `<span class="banner-note">${esc(s.name)} is closed.</span>` : `<button class="btn primary" type="button" data-act="modal-add" data-v="${p.id}" data-store="${s.id}">Add to cart</button>`}
+        </div>
       </div>
-    </div>
-    ${related.length ? `<h2 class="block-title">More in ${esc(p.category || 'this shop')}</h2><div class="rail">${related.map(x => photoTile(x, store)).join('')}</div>` : ''}`);
+    </div>`;
+  document.getElementById('pmod').hidden = false;
+  document.body.classList.add('modal-open');
+  setTitle(p.name);
+}
+function openCart() {
+  paintDrawer();
+  document.getElementById('drawer').hidden = false;
+  document.body.classList.add('drawer-open');
+}
+function closeCart() {
+  const d = document.getElementById('drawer');
+  if (d) d.hidden = true;
+  document.body.classList.remove('drawer-open');
+}
+function paintDrawer() {
+  const panel = document.querySelector('#drawer .drawer-panel');
+  if (!panel) return;
+  const items = Object.values(S.cart.items);
+  const fee = 25;
+  const sub = cartTotal();
+  if (!items.length) {
+    panel.innerHTML = `<div class="drawer-head"><b>Review cart</b><button type="button" data-act="close-cart" aria-label="Close">×</button></div>
+      <p class="muted">Your basket is empty.</p><a class="btn primary" href="#/" data-act="close-cart">Browse shops</a>`;
+    return;
+  }
+  panel.innerHTML = `<div class="drawer-head"><div><b>Review cart</b><div class="muted">${esc(S.cart.storeName || 'Your shop')}</div></div><button type="button" data-act="close-cart" aria-label="Close">×</button></div>
+    <div class="drawer-items">${items.map(i => `<div class="dline">
+      ${img(i.image, '')}
+      <div><b>${esc(i.name)}</b><div class="muted">${esc(i.pack || '')}</div><div class="gtile-price">${R(i.price)}</div></div>
+      <span class="stepper sq">
+        <button type="button" data-act="dec" data-cart="1" data-v="${i.id}" aria-label="Remove one">−</button>
+        <b>${i.q}</b>
+        <button type="button" data-act="inc" data-cart="1" data-v="${i.id}" ${i.q >= 20 ? 'disabled' : ''} aria-label="Add one">+</button>
+      </span>
+    </div>`).join('')}</div>
+    <div class="drawer-sum">
+      <div><span>Subtotal</span><span>${R(sub)}</span></div>
+      <div><span>Delivery fee</span><span>${R(fee)}</span></div>
+      <div class="grand"><span>Total</span><b>${R(sub + fee)}</b></div>
+      <a class="btn primary block" href="#/checkout">Checkout</a>
+    </div>`;
+}
+function openAddr() {
+  const input = document.getElementById('addr-edit');
+  if (input) input.value = addrText();
+  document.getElementById('addrbox').showModal();
 }
 
 function drawCheckout() {
@@ -451,23 +551,23 @@ const views = {
   },
   async store(id) {
     current.name = 'store';
+    hideProductModal();
     const s = await api('/stores/' + id);
     if (!S.cur || Number(S.cur.id) !== Number(s.id)) { S.storeCat = 'All'; S.storeQ = ''; }
     S.cur = s;
     drawStore();
   },
   async product(storeId, productId) {
-    current.name = 'product';
-    const s = await api('/stores/' + storeId);
-    S.cur = s;
-    const p = s.products.find(x => Number(x.id) === Number(productId));
-    if (!p) {
-      setTitle('Not found');
-      view(emptyState({ title: 'Product not found', body: 'It may have been removed from this shop.', href: `#/store/${storeId}`, label: 'Back to the shop' }));
-      return;
+    current.name = 'store';
+    if (!S.cur || Number(S.cur.id) !== Number(storeId)) {
+      S.cur = await api('/stores/' + storeId);
+      S.storeCat = S.storeCat || 'All';
     }
+    if (!document.getElementById('sq')) drawStore();
+    const p = (S.cur.products || []).find(x => Number(x.id) === Number(productId));
+    if (!p) { hideProductModal(); toast('That product is no longer listed'); return; }
     S.product = p;
-    drawProduct();
+    showProductModal(p);
   },
   async login() { current.name = 'login'; authForm('login'); },
   async register() { current.name = 'register'; authForm('register'); },
@@ -626,14 +726,16 @@ async function drawDash() {
 
 function refresh() {
   saveCart();
+  const y = window.scrollY;
   nav();
   if (current.name === 'home') drawHome();
-  else if (current.name === 'store') drawStore();
-  else if (current.name === 'product') drawProduct();
+  else if (current.name === 'store') { drawStore(); scrollTo(0, y); }
   else if (current.name === 'aisle') drawAisle();
   else if (current.name === 'find') drawFind();
   else if (current.name === 'checkout') drawCheckout();
   else if (current.name === 'browse') drawBrowse();
+  if (S.modalProduct && S.cur) showProductModal(S.cur.products.find(p => Number(p.id) === Number(S.modalProduct.id)) || S.modalProduct);
+  if (document.body.classList.contains('drawer-open')) paintDrawer();
 }
 function writeQty(store, product, qty) {
   if (Number(S.cart.store) !== Number(store.id)) S.cart = { store: Number(store.id), storeName: store.name, items: {} };
@@ -692,6 +794,19 @@ async function render() {
   return views[head](p[1]);
 }
 async function route() {
+  const upcoming = parts();
+  if (upcoming[0] === 'checkout') closeCart();
+  const overlay = upcoming[0] === 'store' && upcoming[2] === 'p' && S.cur && String(S.cur.id) === String(upcoming[1]);
+  if (overlay) {
+    if (S.returnScroll == null) S.returnScroll = window.scrollY;
+    clearInterval(S.poll);
+    try { await views.product(upcoming[1], upcoming[3]); }
+    catch (e) { view(errorState(e.message)); }
+    document.body.classList.remove('side-open');
+    nav();
+    scrollTo(0, S.returnScroll || 0);
+    return;
+  }
   const my = ++renderGen;
   clearInterval(S.poll);
   const timer = setTimeout(() => {
@@ -705,12 +820,12 @@ async function route() {
   if (my !== renderGen) return;
   document.body.classList.remove('side-open');
   nav();
-  scrollTo(0, 0);
-  if (S.focusAddr) {
-    S.focusAddr = false;
-    const i = document.getElementById('addr');
-    if (i) { i.focus(); i.scrollIntoView({ block: 'center' }); }
-  }
+  const backToStore = upcoming[0] === 'store' && !upcoming[2] && S.returnScroll != null;
+  if (backToStore) {
+    const y = S.returnScroll;
+    S.returnScroll = null;
+    scrollTo(0, y);
+  } else scrollTo(0, 0);
 }
 function signIn(d) {
   S.token = d.token; S.user = d.user; localStorage.setItem('t', d.token);
@@ -720,6 +835,10 @@ function signIn(d) {
   else location.hash = n;
 }
 
+document.addEventListener('click', e => {
+  const link = e.target.closest('a[href]');
+  if (link && /#\/store\/\d+\/p\//.test(link.getAttribute('href') || '')) S.returnScroll = window.scrollY;
+});
 document.addEventListener('click', async e => {
   if (e.target.closest('#side')) document.body.classList.remove('side-open');
   const b = e.target.closest('[data-act]'); if (!b) return;
@@ -734,14 +853,35 @@ document.addEventListener('click', async e => {
     else if (a === 'hfilter') { S.homeFilter = v; drawHome(); }
     else if (a === 'menu') document.body.classList.toggle('side-open');
     else if (a === 'menu-close') document.body.classList.remove('side-open');
-    else if (a === 'focus-addr') {
-      const home = location.hash === '' || location.hash === '#' || location.hash === '#/';
-      S.focusAddr = true;
-      if (home) {
-        S.focusAddr = false;
-        const i = document.getElementById('addr');
-        if (i) { i.focus(); i.scrollIntoView({ block: 'center' }); }
-      } else location.hash = '#/';
+    else if (a === 'focus-addr') openAddr();
+    else if (a === 'save-addr') {
+      const t = (document.getElementById('addr-edit')?.value || '').trim();
+      if (!t) return toast('Enter a delivery address');
+      S.loc = { ...(S.loc || {}), address: t };
+      localStorage.setItem('loc', JSON.stringify(S.loc));
+      document.getElementById('addrbox').close();
+      nav();
+      if (current.name === 'home') drawHome();
+      const checkoutAddr = document.getElementById('addr');
+      if (checkoutAddr) checkoutAddr.value = t;
+    }
+    else if (a === 'cart') openCart();
+    else if (a === 'close-cart') closeCart();
+    else if (a === 'close-product') {
+      const y = S.returnScroll != null ? S.returnScroll : window.scrollY;
+      S.returnScroll = y;
+      hideProductModal();
+      if (S.cur && /\/p\//.test(location.hash)) location.hash = '#/store/' + S.cur.id;
+    }
+    else if (a === 'modal-add') {
+      const p = S.modalProduct;
+      if (!p || !S.cur) return;
+      const store = { id: S.cur.id, name: S.cur.name, open: !!S.cur.open };
+      if (!qtyOf(store.id, p.id)) changeQty(store, p, 1);
+      S.returnScroll = S.returnScroll != null ? S.returnScroll : window.scrollY;
+      hideProductModal();
+      if (/\/p\//.test(location.hash)) location.hash = '#/store/' + S.cur.id;
+      openCart();
     }
     else if (a === 'go') {
       const t = ($('#addr')?.value || '').trim();
@@ -781,7 +921,12 @@ document.addEventListener('click', async e => {
         const field = document.getElementById('addr');
         if (field) field.value = S.loc.address;
         b.textContent = 'Location saved';
+        const edit = document.getElementById('addr-edit');
+        if (edit) edit.value = S.loc.address;
+        const box = document.getElementById('addrbox');
+        if (box && box.open) box.close();
         nav();
+        if (current.name === 'home') drawHome();
         toast('Location saved');
       }, () => { b.textContent = label; toast('Location blocked. Allow it in your browser, or type your address.'); }, { timeout: 10000, enableHighAccuracy: true });
     }

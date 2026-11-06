@@ -30,6 +30,24 @@
   </div>
 </footer>
 <div id="toast" role="status"></div>
+<dialog id="addrbox" aria-labelledby="addr-title">
+  <h2 id="addr-title">Delivery address</h2>
+  <label class="field">Street and area
+    <input id="addr-edit" placeholder="Street, house number, Greytown" autocomplete="street-address">
+  </label>
+  <div class="dialog-actions">
+    <button type="button" class="btn quiet" data-act="gps">Use current location</button>
+    <button type="button" class="btn primary" data-act="save-addr">Save address</button>
+  </div>
+</dialog>
+<div id="pmod" class="pmod" hidden>
+  <button class="pmod-back" type="button" data-act="close-product" aria-label="Close product"></button>
+  <div class="pmod-card" role="dialog" aria-modal="true" aria-labelledby="pmod-title"></div>
+</div>
+<div id="drawer" class="drawer" hidden>
+  <button class="drawer-back" type="button" data-act="close-cart" aria-label="Close basket"></button>
+  <aside class="drawer-panel" aria-label="Review cart"></aside>
+</div>
 <dialog id="confirm" aria-labelledby="confirm-title">
   <h2 id="confirm-title">Start a new basket?</h2>
   <p id="confirm-copy"></p>

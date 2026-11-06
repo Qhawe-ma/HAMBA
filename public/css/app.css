@@ -76,8 +76,10 @@ h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.02em }
   background: var(--canvas); color: #111;
   border-radius: 12px; padding: 6px 10px; min-height: 40px;
 }
+.basket.on { background: #111; color: #fff }
 .basket b { display: block; font-size: 13px; line-height: 1.15 }
 .basket small { display: block; color: var(--muted); font-weight: 500; font-size: 11px }
+.basket.on small { color: #ddd }
 .quiet-nav { color: #333; font-weight: 600; font-size: 14px; padding: 8px 6px }
 
 #side {
@@ -128,11 +130,12 @@ main {
 .addr-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px }
 .addr-line input { flex: 1 1 220px; max-width: 420px }
 
-.aisles { display: flex; flex-wrap: wrap; gap: 10px 6px; margin: 4px 0 14px }
-.aisle { width: 76px; text-align: center; font-size: 12px; font-weight: 600; line-height: 1.2; color: #222 }
+.aisles { display: flex; flex-wrap: nowrap; gap: 8px 4px; margin: 4px 0 14px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px }
+.aisles::-webkit-scrollbar { display: none }
+.aisle { width: 84px; flex: none; text-align: center; font-size: 12px; font-weight: 600; line-height: 1.2; color: #222 }
 .aisle img {
-  width: 54px; height: 54px; border-radius: 50%; object-fit: cover;
-  margin: 0 auto 6px; background: var(--canvas);
+  width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: center 20%;
+  margin: 0 auto 6px; background: #efe6d6; border: 1px solid #eee;
 }
 
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none }
@@ -357,4 +360,90 @@ dialog p { color: var(--muted) }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important }
+}
+
+.hero-banner {
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 20px; align-items: center;
+  background: #f6f7f8; border-radius: 16px; overflow: hidden; margin: 0 0 16px;
+}
+.hero-banner img { width: 100%; height: 220px; object-fit: cover }
+.hero-banner h1 { font-size: 28px; margin-bottom: 8px }
+.hero-banner p { margin: 0 0 12px; color: var(--muted) }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 8px }
+.hero-place { display: flex; align-items: center; gap: 8px; color: #111 !important; font-weight: 700; margin: 0 !important }
+.promos { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; margin: 8px 0 4px; scroll-snap-type: x mandatory }
+.promo {
+  flex: none; width: min(420px, 86vw); scroll-snap-align: start;
+  display: grid; grid-template-columns: 140px 1fr; min-height: 120px;
+  background: #111; color: #fff; border-radius: 14px; overflow: hidden;
+}
+.promo img { width: 100%; height: 100%; object-fit: cover }
+.promo span { display: grid; align-content: center; gap: 4px; padding: 12px 14px }
+.promo b { font-size: 16px }
+.promo small { color: #ddd; font-size: 13px }
+.promo em { font-style: normal; font-weight: 800; font-size: 13px; margin-top: 4px }
+.store-rail .scard { width: 280px; flex: none }
+.order-pill {
+  position: absolute; left: 10px; bottom: 10px;
+  background: #fff; color: #111; border-radius: 999px;
+  font-size: 13px; font-weight: 800; padding: 6px 12px;
+}
+.tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 18px 12px }
+.gtile { position: relative; min-width: 0 }
+.gtile-media { display: block; position: relative; aspect-ratio: 1; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #f0f0f0 }
+.gtile-media img { width: 100%; height: 100%; object-fit: cover }
+.gtile-add { position: absolute; top: 8px; right: 8px; z-index: 2 }
+.gtile-price { font-weight: 800; font-size: 15px; margin-top: 8px }
+.gtile-name { display: block; font-size: 13px; font-weight: 600; line-height: 1.3; margin-top: 2px }
+.add.sq, .stepper.sq { border-radius: 8px }
+.add.sq { width: 36px; height: 36px; background: #111; color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25) }
+.stepper.sq { background: #fff; padding: 2px }
+.deal {
+  position: absolute; left: 6px; bottom: 6px; z-index: 1;
+  background: #e10600; color: #fff; font-size: 11px; font-weight: 800;
+  border-radius: 4px; padding: 3px 6px; max-width: calc(100% - 48px);
+}
+.deal-bar { background: #e10600; color: #fff; font-weight: 800; border-radius: 6px; padding: 8px 10px; margin: 8px 0 }
+.pmod, .drawer { position: fixed; inset: 0; z-index: 80 }
+.pmod[hidden], .drawer[hidden] { display: none }
+.pmod-back, .drawer-back { position: absolute; inset: 0; background: rgba(17,17,17,.45); border: 0 }
+.pmod-card {
+  position: relative; z-index: 1;
+  width: min(860px, calc(100% - 32px));
+  max-height: calc(100vh - 48px); overflow: auto;
+  margin: 24px auto; background: #fff; border-radius: 16px; padding: 20px;
+}
+.pmod-x, .drawer-head button {
+  position: absolute; right: 12px; top: 12px;
+  width: 36px; height: 36px; border-radius: 50%; background: #f3f4f6; font-size: 22px;
+}
+.pmod-grid { display: grid; gap: 18px }
+.pmod-photo { background: #f6f7f8; border-radius: 12px; overflow: hidden; aspect-ratio: 1 }
+.pmod-photo img { width: 100%; height: 100%; object-fit: cover }
+.pmod-price { font-size: 22px }
+.pmod-act { display: flex; align-items: center; gap: 12px; margin-top: 16px }
+.drawer-panel {
+  position: absolute; z-index: 1; top: 0; right: 0; bottom: 0;
+  width: min(380px, 100%); background: #fff;
+  display: flex; flex-direction: column; padding: 16px;
+  box-shadow: -8px 0 24px rgba(0,0,0,.08);
+}
+.drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; padding-right: 36px }
+.drawer-head button { position: static }
+.drawer-items { overflow: auto; flex: 1 }
+.dline { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line) }
+.dline img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px }
+.drawer-sum { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line) }
+.drawer-sum div { display: flex; justify-content: space-between }
+.drawer-sum .grand b { color: var(--price); font-size: 18px }
+@media (min-width: 800px) {
+  .pmod-grid { grid-template-columns: minmax(0, 280px) minmax(0, 1fr); align-items: start }
+  .hero-banner img { height: 260px }
+}
+@media (max-width: 799px) {
+  .hero-banner { grid-template-columns: 1fr }
+  .hero-banner img { height: 160px }
+  .tgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px }
+  .promo { width: min(340px, 88vw); grid-template-columns: 110px 1fr }
 }

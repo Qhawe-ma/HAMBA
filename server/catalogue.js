@@ -23,9 +23,9 @@ export const AISLES = [
   { name: 'Meat & Poultry', image: '/img/catalog/steak.jpg' },
   { name: 'Pantry', image: '/img/catalog/maize.jpg' },
   { name: 'Beverages', image: '/img/catalog/juice.jpg' },
-  { name: 'Snacks', image: '/img/catalog/biscuits.jpg' },
-  { name: 'Frozen', image: '/img/catalog/icecream.jpg' },
-  { name: 'Household', image: '/img/catalog/paper.jpg' },
+  { name: 'Snacks', image: '/img/catalog/chocolate.jpg' },
+  { name: 'Frozen', image: '/img/catalog/nuggets.jpg' },
+  { name: 'Household', image: '/img/catalog/clean.jpg' },
   { name: 'Personal Care', image: '/img/catalog/soap.jpg' },
 ];
 
